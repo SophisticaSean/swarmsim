@@ -8,12 +8,13 @@ defmodule Swarmserver do
   def init(:ok) do
     Hound.start_session
     navigate_to(@swarm_all)
-    IO.puts "Server Started"
     config = get_config
     state =
       case config["save_cookie"] do
       nil ->
-        new_game
+        IO.puts "No saved game, starting fresh"
+        toggle_advanced_data
+        # TODO gotta make sure advanced unit data is always on
         Dict.put(config, "save_cookie", get_save_cookie)
         |> save_config()
       _ ->
@@ -22,6 +23,8 @@ defmodule Swarmserver do
         navigate_to(@swarm_base)
         config
       end
+    navigate_to(@swarm_all)
+    IO.puts "Server Started"
     {:ok, state}
   end
 
@@ -29,23 +32,30 @@ defmodule Swarmserver do
     {:reply, state, state}
   end
 
-  def new_game do
+  def toggle_advanced_data do
     navigate_to(@swarm_base <> "/#/options")
-    IO.puts "No saved game, starting fresh"
+    # have to make a change to initial gamestate to generate a save cookie
     find_element(:xpath, "//label/input[@ng-model='form.showadvancedunitdata']")
     |> click
   end
 
-  def save_state(state) do
-    case check_for_save_cookie do
-    false ->
-      new_game
-    _ ->
-      IO.puts "Save game found"
-    end
-    state = Dict.put(state, "save_cookie", get_save_cookie)
+  def buy_unit(unit, amount) do
+    execute_script("$('body').scope().game._units.byName.#{unit}.buyMax(arguments[0])", [amount])
+    save_game
+  end
+
+  def buy_upgrade(upgrade, amount \\ 1) do
+    execute_script("$('body').scope().game._upgrades.byName.#{upgrade}.buyMax(arguments[0])", [amount])
+    save_game
+  end
+
+  def unit_count(unit) do
+    execute_script("return $('body').scope().game._units.byName.#{unit}.count().c[0];")
+  end
+
+  def save_game do
+    state = Dict.put(Map.new, "save_cookie", get_save_cookie)
     |> save_config()
-    {:replay, state, state}
   end
 
   def check_for_save_cookie do
@@ -54,14 +64,12 @@ defmodule Swarmserver do
   end
 
   def get_save_cookie do
-    IO.inspect cookies
     temp = Enum.filter(cookies, fn(x) -> String.length(x["value"]) > 100 end)
     hd temp
   end
 
   def load_save_cookie(save) do
-    result = set_cookie(save)
-    IO.puts result
+    set_cookie(save)
   end
 
   def get_config do
