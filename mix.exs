@@ -33,6 +33,7 @@ defmodule Swarmsim.Mixfile do
   defp deps do
     [ {:hound, "~> 0.8"},
       {:remix, git: "https://github.com/AgilionApps/remix.git", only: :dev},
+      {:exjsx, "~> 3.2.0"},
     ]
   end
 end

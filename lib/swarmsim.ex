@@ -10,7 +10,11 @@ defmodule Swarmsim do
     GenServer.start_link(Swarmserver, :ok, name: Swarmserver)
   end
 
-  def goto do
-    GenServer.call(Swarmserver, {:goto_meat})
+  def state do
+    GenServer.call(Swarmserver, :get_state)
+  end
+
+  def call(atom) do
+    GenServer.call(Swarmserver, atom)
   end
 end
