@@ -5,6 +5,8 @@ defmodule Swarmserver do
   @swarm_base "https://swarmsim.github.io/"
   @swarm_all @swarm_base <> "#/tab/all/"
 
+  @unit_list ["drone", "queen", "nest", "greaterqueen", "hive", "swarmling", "stinger", "spider", "mosquito", "locust", "roach", "giantspider", "centipede", "wasp"]
+
   def init(:ok) do
     Hound.start_session
     navigate_to(@swarm_all)
@@ -15,17 +17,31 @@ defmodule Swarmserver do
         IO.puts "No saved game, starting fresh"
         toggle_advanced_data
         # TODO gotta make sure advanced unit data is always on
-        Dict.put(config, "save_cookie", get_save_cookie)
+        Dict.put(config, "save_cookie", get_save)
         |> save_config()
       _ ->
         IO.puts "Save game found"
-        load_save_cookie(config["save_cookie"])
+        load_save(config["save_cookie"])
         navigate_to(@swarm_base)
         config
       end
     navigate_to(@swarm_all)
     IO.puts "Server Started"
     {:ok, state}
+  end
+
+  def play(seconds \\ 5000) do
+    ["hatchery", "expansion", "achievementbonus"]
+    |> Enum.map(fn(x) -> buy_upgrade(x) end)
+    Enum.map(@unit_list, fn(x) -> buy_if_under_million(x) end)
+    :timer.sleep(100)
+    seconds = seconds - 100
+    take_screenshot("lol.png")
+    System.cmd("open", ["lol.png"])
+    IO.puts seconds
+    if seconds > 0 do
+      play(seconds)
+    end
   end
 
   def handle_call(:get_state, _from, state) do
@@ -40,21 +56,42 @@ defmodule Swarmserver do
   end
 
   def buy_unit(unit, amount) do
-    execute_script("$('body').scope().game._units.byName.#{unit}.buyMax(arguments[0])", [amount])
+    execute_script("try{$('body').scope().game._units.byName.#{unit}.buyMax(arguments[0])}catch(e){};", [amount])
     save_game
   end
 
   def buy_upgrade(upgrade, amount \\ 1) do
-    execute_script("$('body').scope().game._upgrades.byName.#{upgrade}.buyMax(arguments[0])", [amount])
+    execute_script("try{$('body').scope().game._upgrades.byName.#{upgrade}.buyMax(arguments[0])}catch(e){};", [amount])
     save_game
   end
 
   def unit_count(unit) do
-    execute_script("return $('body').scope().game._units.byName.#{unit}.count().c[0];")
+    execute_script("return $('body').scope().game._units.byName.#{unit}.count().toNumber();")
+    |> trunc
+  end
+
+  def buy_if_under_million(unit, count \\ 1000000) do
+    cur_unit_count = unit_count(unit)
+    cond do
+      cur_unit_count < count ->
+        IO.puts "buying #{unit}"
+        buy_upgrade("#{unit}twin")
+        buy_unit(unit, 0.5)
+      true ->
+        true
+    end
+    buy_upgrade("#{unit}prod")
+  end
+
+  def report_unit_count(units \\ Enum.into(@unit_list, ["meat", "larva"])) do
+    Enum.map(units, fn(x) ->
+      cur_unit_count = unit_count(x)
+      IO.puts "#{x}: #{cur_unit_count}"
+    end)
   end
 
   def save_game do
-    state = Dict.put(Map.new, "save_cookie", get_save_cookie)
+    Dict.put(Map.new, "save_cookie", get_save)
     |> save_config()
   end
 
@@ -63,13 +100,12 @@ defmodule Swarmserver do
     |> Enum.any?(fn(x) -> String.length(x) > 100 end)
   end
 
-  def get_save_cookie do
-    temp = Enum.filter(cookies, fn(x) -> String.length(x["value"]) > 100 end)
-    hd temp
+  def get_save do
+    execute_script("return $('body').scope().game.session.exportSave()")
   end
 
-  def load_save_cookie(save) do
-    set_cookie(save)
+  def load_save(save) do
+    execute_script("$('body').scope().game.session.importSave('#{save}', false)")
   end
 
   def get_config do
@@ -102,5 +138,9 @@ defmodule Swarmserver do
 
   def clear_config do
     File.write("config/config.json", "{}")
+  end
+
+  def stop do
+    Hound.end_session
   end
 end

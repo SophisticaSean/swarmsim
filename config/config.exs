@@ -11,7 +11,7 @@ use Mix.Config
 config :remix,
   silent: true
 
-#config :hound, driver: "firefox"
+config :hound, driver: "phantomjs"
 # You can configure for your application as:
 #
 #     config :swarmsim, key: :value
