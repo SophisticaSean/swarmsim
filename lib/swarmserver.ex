@@ -5,12 +5,13 @@ defmodule Swarmserver do
   @swarm_base "https://swarmsim.github.io/"
   @swarm_all @swarm_base <> "#/tab/all/"
 
-  @unit_list ["drone", "queen", "nest", "greaterqueen", "hive", "swarmling", "stinger", "spider", "mosquito", "locust", "roach", "giantspider", "centipede", "wasp"]
+  # @unit_list ["drone", "queen", "nest", "greaterqueen", "hive", "swarmling", "stinger", "spider", "mosquito", "locust", "roach", "giantspider", "centipede", "wasp", "devourer", "goon"]
 
   def init(:ok) do
     Hound.start_session
     navigate_to(@swarm_all)
     config = get_config
+    screenshot
     state =
       case config["save_cookie"] do
       nil ->
@@ -21,6 +22,7 @@ defmodule Swarmserver do
         |> save_config()
       _ ->
         IO.puts "Save game found"
+        IO.puts config["save_cookie"]
         load_save(config["save_cookie"])
         navigate_to(@swarm_base)
         config
@@ -33,14 +35,20 @@ defmodule Swarmserver do
   def play(seconds \\ 5000) do
     ["hatchery", "expansion", "achievementbonus"]
     |> Enum.map(fn(x) -> buy_upgrade(x) end)
-    Enum.map(@unit_list, fn(x) -> buy_if_under_million(x) end)
-    :timer.sleep(100)
+    Enum.map(unit_list, fn(x) -> buy_if_under_million(x) end)
+    :timer.sleep(10)
     seconds = seconds - 100
-    take_screenshot("lol.png")
-    System.cmd("open", ["lol.png"])
     IO.puts seconds
     if seconds > 0 do
+      screenshot
       play(seconds)
+    end
+  end
+
+  def screenshot(open \\ true) do
+    take_screenshot("lol.png")
+    if open == true do
+      System.cmd("open", ["lol.png"])
     end
   end
 
@@ -53,6 +61,16 @@ defmodule Swarmserver do
     # have to make a change to initial gamestate to generate a save cookie
     find_element(:xpath, "//label/input[@ng-model='form.showadvancedunitdata']")
     |> click
+  end
+
+  def unit_list do
+    super_scan = fn(a, b) -> Regex.scan(b, a, capture: :all_but_first) end
+    find_all_elements(:css, "a.titlecase")
+    |> Enum.map(fn(x) ->
+        attribute_value(x, "class")
+        |> super_scan.(~r/label\-(\w*)/)
+        |> List.to_string
+       end)
   end
 
   def buy_unit(unit, amount) do
@@ -74,16 +92,16 @@ defmodule Swarmserver do
     cur_unit_count = unit_count(unit)
     cond do
       cur_unit_count < count ->
-        IO.puts "buying #{unit}"
         buy_upgrade("#{unit}twin")
         buy_unit(unit, 0.5)
+        IO.puts "buying #{unit}: #{unit_count(unit)}"
       true ->
         true
     end
     buy_upgrade("#{unit}prod")
   end
 
-  def report_unit_count(units \\ Enum.into(@unit_list, ["meat", "larva"])) do
+  def report_unit_count(units \\ unit_list) do
     Enum.map(units, fn(x) ->
       cur_unit_count = unit_count(x)
       IO.puts "#{x}: #{cur_unit_count}"
