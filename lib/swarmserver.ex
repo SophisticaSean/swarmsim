@@ -5,7 +5,7 @@ defmodule Swarmserver do
   @swarm_base "https://swarmsim.github.io/"
   @swarm_all @swarm_base <> "#/tab/all/"
 
-  # @unit_list ["drone", "queen", "nest", "greaterqueen", "hive", "swarmling", "stinger", "spider", "mosquito", "locust", "roach", "giantspider", "centipede", "wasp", "devourer", "goon"]
+   @unit_list ["cocoon", "drone", "queen", "nest", "greaterqueen", "hive", "swarmling", "stinger", "spider", "mosquito", "locust", "roach", "giantspider", "centipede", "wasp", "devourer", "goon", "moth"]
 
   def init(:ok) do
     Hound.start_session
@@ -33,11 +33,11 @@ defmodule Swarmserver do
   end
 
   def play(seconds \\ 5000) do
-    ["hatchery", "expansion", "achievementbonus"]
+    ["hatchery", "expansion", "achievementbonus", "nexus1", "nexus2", "nexus3", "nexus4", "nexus5", "cocooning"]
     |> Enum.map(fn(x) -> buy_upgrade(x) end)
-    Enum.map(unit_list, fn(x) -> buy_if_under_million(x) end)
+    Enum.map(@unit_list, fn(x) -> buy_if_under(x) end)
     :timer.sleep(10)
-    seconds = seconds - 100
+    seconds = seconds - 1000
     IO.puts seconds
     if seconds > 0 do
       screenshot
@@ -50,6 +50,10 @@ defmodule Swarmserver do
     if open == true do
       System.cmd("open", ["lol.png"])
     end
+  end
+
+  def print_unit_list do
+    IO.puts @unit_list
   end
 
   def handle_call(:get_state, _from, state) do
@@ -88,7 +92,7 @@ defmodule Swarmserver do
     |> trunc
   end
 
-  def buy_if_under_million(unit, count \\ 1000000) do
+  def buy_if_under(unit, count \\ 1000000000) do
     cur_unit_count = unit_count(unit)
     cond do
       cur_unit_count < count ->
@@ -101,7 +105,7 @@ defmodule Swarmserver do
     buy_upgrade("#{unit}prod")
   end
 
-  def report_unit_count(units \\ unit_list) do
+  def report_unit_count(units \\ @unit_list) do
     Enum.map(units, fn(x) ->
       cur_unit_count = unit_count(x)
       IO.puts "#{x}: #{cur_unit_count}"
